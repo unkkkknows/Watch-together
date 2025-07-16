@@ -114,4 +114,128 @@
     });
   </script>
 </body>
+</html<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Watch Room</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="https://api.dmcdn.net/all.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h2>Room: <span id="roomCode"></span></h2>
+
+    <div class="username-row">
+      <input type="text" id="usernameInput" placeholder="Enter your name" />
+    </div>
+
+    <input type="text" id="videoIdInput" placeholder="Enter Dailymotion video ID" />
+    <button onclick="updateVideo()">Load Video</button>
+
+    <iframe id="dmPlayer" src="" allow="autoplay" allowfullscreen></iframe>
+
+    <div id="chatBox"></div>
+
+    <input type="text" id="chatInput" placeholder="Type a message..." />
+    <button onclick="sendMessage()">Send</button>
+  </div>
+
+  <script>
+    // CHANGE THIS to your Replit backend URL:
+    const socket = io("https://watch-backend.nobody1221nobod.repl.co");
+
+    const room = new URLSearchParams(window.location.search).get("room");
+    document.getElementById("roomCode").textContent = room || "Unknown";
+
+    socket.emit("join-room", room);
+
+    const iframe = document.getElementById("dmPlayer");
+    const input = document.getElementById("videoIdInput");
+    const usernameInput = document.getElementById("usernameInput");
+    const chatInput = document.getElementById("chatInput");
+    const chatBox = document.getElementById("chatBox");
+
+    // Random avatar URL per user session
+    const avatarURL = `https://api.dicebear.com/7.x/thumbs/svg?seed=${Math.random().toString(36).substring(7)}`;
+
+    let player = null;
+    let isSyncing = false;
+
+    function updateVideo() {
+      const id = input.value.trim();
+      if (id) {
+        iframe.src = `https://www.dailymotion.com/embed/video/${id}`;
+        socket.emit("video-change", { room, videoId: id });
+      }
+    }
+
+    window.dmAsyncInit = function () {
+      player = DM.player(iframe);
+      player.addEventListener("apiready", () => {
+        player.addEventListener("play", () => {
+          if (!isSyncing) {
+            player.currentTime.then(time => {
+              socket.emit("sync-event", { room, event: "play", time });
+            });
+          }
+        });
+
+        player.addEventListener("pause", () => {
+          if (!isSyncing) {
+            player.currentTime.then(time => {
+              socket.emit("sync-event", { room, event: "pause", time });
+            });
+          }
+        });
+
+        player.addEventListener("seeked", () => {
+          if (!isSyncing) {
+            player.currentTime.then(time => {
+              socket.emit("sync-event", { room, event: "seek", time });
+            });
+          }
+        });
+
+        socket.on("sync-event", ({ event, time }) => {
+          isSyncing = true;
+          if (event === "play") {
+            player.seek(time).then(() => player.play());
+          } else if (event === "pause") {
+            player.seek(time).then(() => player.pause());
+          } else if (event === "seek") {
+            player.seek(time);
+          }
+          setTimeout(() => isSyncing = false, 100);
+        });
+
+        socket.on("video-change", ({ videoId }) => {
+          iframe.src = `https://www.dailymotion.com/embed/video/${videoId}`;
+        });
+      });
+    };
+
+    function sendMessage() {
+      const msg = chatInput.value.trim();
+      const name = usernameInput.value.trim() || "Anonymous";
+      if (msg) {
+        socket.emit("chat", { room, message: msg, name, avatar: avatarURL });
+        chatInput.value = "";
+      }
+    }
+
+    socket.on("chat", ({ message, name, avatar }) => {
+      const div = document.createElement("div");
+      div.className = "chat-msg";
+      div.innerHTML = `<img src="${avatar}" alt="avatar"><span>${name}:</span> ${message}`;
+      chatBox.appendChild(div);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    });
+
+    // Connection debug logs
+    socket.on("connect", () => console.log("✅ Connected to backend"));
+    socket.on("connect_error", (err) => console.error("❌ Socket connection error:", err));
+  </script>
+</body>
 </html>
