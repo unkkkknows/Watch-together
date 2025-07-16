@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Watch Together - Home</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>🎬 Welcome to Watch Together</h1>
+
+    <button onclick="createRoom()">Create New Room</button>
+    <p>— or —</p>
+    <input type="text" id="roomInput" placeholder="Enter Room Code" />
+    <br />
+    <button onclick="joinRoom()">Join Room</button>
+  </div>
+
+  <script>
+    function createRoom() {
+      const room = Math.random().toString(36).substring(2, 8);
+      window.location.href = `room.html?room=${room}`;
+    }
+
+    function joinRoom() {
+      const room = document.getElementById("roomInput").value.trim();
+      if (room) {
+        window.location.href = `room.html?room=${room}`;
+      }
+    }
+  </script>
+</body>
+</html>
